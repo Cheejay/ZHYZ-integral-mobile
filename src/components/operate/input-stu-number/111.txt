@@ -1,0 +1,35 @@
+div class="input-container">
+      <div class="item">
+        <input type="text" v-model="stuNum" @keyup.enter="nextStep" maxlength="9" autofocus placeholder="请输入9位数学号">
+        <i class="icon zhyz-error" @click="clearNum" v-show="stuNum"></i>
+      </div>
+      <div class="item">
+        <el-button type="primary"
+          v-loading.fullscreen.lock="isLoading"
+          class="next-btn btn" 
+          @click="nextStep">下一步</el-button>
+      </div>
+
+// 点击下一步按钮
+      nextStep() {
+        if(!this.stuNum) {
+          openVn('学号不能为空！', 'error')
+          return
+        }
+        this._getStudentInfoByNumber()
+      },
+
+  // 用学号获取学生信息
+      _getStudentInfoByNumber() {
+        this.isLoading = true
+        getStudentInfoByNumber(this.stuNum).then((res) => {
+          if(!res.code && res.code !== 0) {
+            this.studentData = res
+            this.$router.push(`/inputStudentNumber/performOperate/${res.id}`)
+            this.isLoading = false
+          } else {
+            openVn(`${res.msg}`, 'error')
+            this.isLoading = false
+          }
+        })
+      }

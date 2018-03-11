@@ -1,0 +1,147 @@
+<template>
+  <div class="my-operate-detail-list">
+    <sub-header titleText="操作详情列表"></sub-header>
+    <div class="list-container" v-if="items.length">
+      <scroll ref="scroll"
+        :data="items"
+        @clickItem="clickItem"
+        @withdrawItem="withdrawItem"
+        :pullUpLoad="pullUpLoadObj"
+        @pullingUp="onPullingUp">
+      </scroll>
+    </div>
+    <!-- 当有信息但是为渲染的时候 loading 组件显示 -->
+    <div class="loading-box box" v-show="hasInfo && !items.length">
+      <loading></loading>
+    </div>
+    <!-- 当没信息的时候 no-result 组件显示 -->
+    <div class="no-result-box box" v-show="!hasInfo && !items.length">
+      <no-result></no-result>
+    </div>
+    <router-view :detail-data="detailData"></router-view>
+  </div>
+</template>
+
+<script>
+  import SubHeader from 'base/sub-header/sub-header'
+  import Loading from 'base/loading/loading'
+  import Scroll from 'base/scroll/scroll2'
+  import NoResult from 'base/no-result/no-result'
+  import { getPersonalOperateInfo, withdrawOperateHistory } from 'api/operate'
+  import { ERR_OK, LOGIN_ERR } from 'api/config'
+  import { openVn, loginFailure } from 'common/js/util'
+
+  export default {
+    data() {
+      return {
+        items: [],
+        pageNum: 1,
+        totalPage: 2,
+        hasInfo: true,
+        detailData: null,
+        pullingUpCount: 0,
+        pullUpLoad: true,
+        pullDownRefresh: true,
+        pullDownRefreshStop: 40,
+        pullUpLoadThreshold: 0,
+        pullDownRefreshThreshold: 90,
+        pullUpLoadMoreTxt: '加载更多'
+      }
+    },
+    created() {
+      this._getPersonalOperateInfo()
+    },
+    methods: {
+      clickItem(item) {
+        this.detailData = item
+        this.$router.push('/myOperateDetailList/myOperateDetail')
+      },
+      withdrawItem(item) {
+        this._withdrawOperateHistory(item)
+      },
+      // 下面的更新
+      onPullingUp() {
+        this._getPersonalOperateInfo(++this.pageNum)
+      },
+      rebuildScroll() {
+        this.$nextTick(() => {
+          try {
+            this.$refs.scroll.destroy()
+            this.$refs.scroll.initScroll()
+          } catch (err) {
+            console.log(err)
+          }
+        })
+      },
+      _getPersonalOperateInfo(page) {
+        getPersonalOperateInfo(page).then((res) => {
+          if(res.code === LOGIN_ERR) {
+            loginFailure()
+          }
+          if(res.total === 0) {
+            this.hasInfo = false
+          }
+          this.totalPage = Math.ceil(res.total / res.per_page)
+          if(this.pageNum >= this.totalPage) {
+            this.pullUpLoadMoreTxt = '没有更多数据了'
+          }
+          this.items = this.items.concat(res.data)
+        })
+      },
+      _withdrawOperateHistory(item) {
+        withdrawOperateHistory(item.id).then((res) => {
+          if(res.code === ERR_OK) {
+            openVn('撤回成功！')
+          } else if(res.code === LOGIN_ERR) {
+            loginFailure()
+          } else {
+            openVn(`撤回失败！${res.msg}`, 'error')
+          }
+        })
+      }
+    },
+    computed: {
+      pullUpLoadObj: function() {
+        return this.pullUpLoad ? {threshold: parseInt(this.pullUpLoadThreshold), txt: {more: this.pullUpLoadMoreTxt, noMore: this.pullUpLoadNoMoreTxt}} : false
+      }
+    },
+    components: {
+      Scroll,
+      Loading,
+      NoResult,
+      SubHeader
+    },
+    watch: {
+      pullDownRefreshObj() {
+        this.rebuildScroll()
+      },
+      pullUpLoadObj() {
+        this.rebuildScroll()
+      }
+    }
+  }
+</script>
+
+<style lang="stylus" scoped>
+  @import "~common/stylus/variable"
+
+  .my-operate-detail-list
+    position: fixed
+    top: 0
+    left: 0
+    width: 100%
+    height: 100%
+    background-color: $color-background
+    .list-container
+      position: relative
+      top: 0
+      height: 100%
+      overflow: hidden
+  .box {
+    position: absolute
+    top: 50%
+    left: 50%
+    transform: translate3d(-50%, -50%, 0)
+  }
+</style>
+
